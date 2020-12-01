@@ -5,3 +5,4 @@ set(CMAKE_C_STANDARD 11)
 
 add_executable(JGSWeb src/jgsweb.c)
 target_link_libraries(JGSWeb curl)
+add_executable(test test/test.c)
