@@ -34,7 +34,7 @@ define Build/Compile
 	$(TARGET_CC) $(TARGET_LDFLAGS) -o $(PKG_BUILD_DIR)/$1 $(PKG_BUILD_DIR)/jgsweb.o
 endef
 
-define Package/ua2f/install
+define Package/jgsweb/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/jgsweb $(1)/usr/bin
 endef
