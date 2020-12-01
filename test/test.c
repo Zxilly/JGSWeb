@@ -4,13 +4,17 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <curl/curl.h>
 
 int main(int argc, char *argv[]){
-    char *account = "1909102345";
-    printf("%lu\n",strlen(account));
-    printf("%d\n",argc);
-    printf("%s\n",argv[0]);
-    printf("%s\n",account);
-    account = argv[1];
-    printf("%s\n",account);
+    static CURL *checksession, *loginsession;
+    curl_global_init(CURL_GLOBAL_ALL);
+    checksession = curl_easy_init();
+    curl_easy_setopt(checksession, CURLOPT_URL, "https://www.baidu.com");
+    //curl_easy_setopt(checksession, CURLOPT_TCP_KEEPALIVE, 1L);
+    //curl_easy_setopt(checksession, CURLOPT_TCP_KEEPIDLE, 120L);
+    //curl_easy_setopt(checksession, CURLOPT_TCP_KEEPINTVL, 60L);
+    //curl_easy_setopt(checksession, CURLOPT_USERAGENT, "FFFFFFFFFFFFFFFFF");
+    int a = curl_easy_perform(checksession);
+    printf("%d\n",a);
 }
