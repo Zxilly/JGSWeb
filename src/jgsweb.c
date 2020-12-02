@@ -12,7 +12,10 @@
 
 static CURL *checksession, *loginsession;
 static CURLcode checkcode;
-static int count = 0;
+static int logincount = 0;
+static int oldlogincount = 0;
+static int hourcount = 0;
+
 
 static struct MemoryStruct {
     char *memory;
@@ -55,17 +58,17 @@ static _Bool check() {
     switch (http_code) {
         case 204:
             //printf("Check Success.\n");
-            sleep(1);
+            sleep(5);
             return true;
         case 000:
             return check();
         case 302:
         case 200:
-            sleep(1);
+            //sleep(1);
             return false;
         default:
             syslog(LOG_WARNING, "Uncaught Error %ld", http_code);
-            sleep(1);
+            //sleep(1);
             return false;
     }
 }
@@ -77,14 +80,14 @@ static _Bool login() {
     if (checkcode != CURLE_OK) {
         return login();
     } else {
-        sscanf(mem_a.memory, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num);
+        sscanf(mem_a.memory, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num); //TODO: implement get error UL
         if (drcom_num == 2) {
             //printf("drcom is %d\n",drcom_num);
             syslog(LOG_ERR, "Login Failed, Retry in 14s.");
             sleep(13);
             return false;
         } else {
-            count++;
+            logincount++;
             //printf("Login Success.\n");
             syslog(LOG_NOTICE, "Login Success.");
             return true;
@@ -225,11 +228,13 @@ int main(int argc, char *argv[]) {
         if (check()) {
             if (difftime(time(NULL), count_t) >= 3600) {
                 count_t = time(NULL);
-                if (count == 0) {
-                    syslog(LOG_INFO, "Network works normally in the past one hour.");
+                if (logincount-oldlogincount>0){
+                    syslog(LOG_INFO,"Normal time in the past is %d hours",hourcount);
+                    syslog(LOG_INFO,"Login %d time(s) in the past 1 hour, has login %d times in total.",logincount-oldlogincount,logincount);
+                    oldlogincount = logincount;
+                    hourcount = 0;
                 } else {
-                    syslog(LOG_INFO, "Login %d times in the past one hour.", count);
-                    count = 0;
+                    syslog(LOG_INFO,"Running normal in the past %d hour(s).",++hourcount);
                 }
             }
         } else {
