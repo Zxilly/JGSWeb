@@ -24,6 +24,7 @@ static struct MemoryStruct {
 
 static size_t rboutput(const char *d, size_t n, size_t l, void *p)
 {
+    syslog(LOG_DEBUG,"%s",d);
     (void)d;
     (void)p;
     return n*l;
