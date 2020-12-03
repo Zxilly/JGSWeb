@@ -15,7 +15,9 @@ static CURLcode checkcode;
 static int logincount = 0;
 static int oldlogincount = 0;
 static int hourcount = 0;
+static pid_t startup_status, sid;
 
+void creatCheckSession();
 
 static struct MemoryStruct {
     char *memory;
@@ -24,7 +26,7 @@ static struct MemoryStruct {
 
 static size_t rboutput(const char *d, size_t n, size_t l, void *p)
 {
-    syslog(LOG_DEBUG,"%s",d);
+    //syslog(LOG_DEBUG,"%s",d);
     (void)d;
     (void)p;
     return n*l;
@@ -92,13 +94,59 @@ static _Bool login() {
             logincount++;
             //printf("Login Success.\n");
             syslog(LOG_NOTICE, "Login Success.");
+            //sleep(1);
+            curl_easy_cleanup(checksession);
+            creatCheckSession();
             return true;
         }
     }
 }
 
+static void creatDaemon(){
+    signal(SIGCHLD, SIG_IGN);
+    signal(SIGHUP, SIG_IGN); // ignore 父进程挂掉的关闭信号
+    startup_status = fork();
+    if (startup_status < 0) {
+        perror("Creat Daemon");
+        closelog();
+        exit(EXIT_FAILURE);
+    } else if (startup_status == 0) {
+        syslog(LOG_NOTICE, "JGSWeb parent daemon start at [%d].", getpid());
+        sid = setsid();
+        if (sid < 0) {
+            perror("Second Dameon Claim");
+            exit(EXIT_FAILURE);
+        } else if (sid > 0) {
+            syslog(LOG_NOTICE, "JGSWeb parent daemon set sid at [%d].", sid);
+            startup_status = fork(); // 第二次fork，派生出一个孤儿
+            if (startup_status < 0) {
+                perror("Second Daemon Fork");
+                exit(EXIT_FAILURE);
+            } else if (startup_status > 0) {
+                syslog(LOG_NOTICE, "JGSWeb true daemon will start at [%d], daemon parent suicide.", startup_status);
+                exit(EXIT_SUCCESS);
+            } else {
+                syslog(LOG_NOTICE, "JGSWeb true daemon start at [%d].", getpid());
+            }
+        }
+    } else {
+        syslog(LOG_NOTICE, "JGSWeb try to start daemon parent at [%d], parent process will suicide.", startup_status);
+        printf("JGSWeb try to start daemon parent at [%d], parent process will suicide.\n", startup_status);
+        exit(EXIT_SUCCESS);
+    }
+}
+
+void creatCheckSession(){
+    checksession = curl_easy_init();
+    curl_easy_setopt(checksession, CURLOPT_URL, "http://connect.rom.miui.com/generate_204");
+    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPALIVE, 1L);
+    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPIDLE, 120L);
+    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPINTVL, 60L);
+    curl_easy_setopt(checksession, CURLOPT_WRITEFUNCTION, rboutput);
+    curl_easy_setopt(checksession, CURLOPT_USERAGENT, "FFFFFFFFFFFFFFFFF");
+}
+
 int main(int argc, char *argv[]) {
-    pid_t startup_status, sid;
     char checkurl[] = "http://connect.rom.miui.com/generate_204";
     char loginurl[] = "http://192.168.167.46/a70.htm";
     char *account;
@@ -133,15 +181,15 @@ int main(int argc, char *argv[]) {
 
         FILE *p_file = NULL;
 
-    p_file = popen(
-            "ubus call network.interface.wan status | grep \\\"address\\\" | grep -oE '[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}'",
-            "r");
-    if (!p_file) {
-        perror("GetIP");
-    }
-    fscanf(p_file, "%s", IP);
-    pclose(p_file); //TEST
-//    IP = "10.73.11.223";
+//    p_file = popen(
+//            "ubus call network.interface.wan status | grep \\\"address\\\" | grep -oE '[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}'",
+//            "r");
+//    if (!p_file) {
+//        perror("GetIP");
+//    }
+//    fscanf(p_file, "%s", IP);
+//    pclose(p_file); //TEST
+    IP = "10.73.11.223";
 //    printf("%s",IP);
 
 
@@ -152,37 +200,7 @@ int main(int argc, char *argv[]) {
     // 理想的操作应该是使用 uci 或者访问 ubus 获取 IP，同时也可以在 IP 变更时得到通知
     // TODO: implement ubus client
 
-    signal(SIGCHLD, SIG_IGN);
-    signal(SIGHUP, SIG_IGN); // ignore 父进程挂掉的关闭信号
-    startup_status = fork();
-    if (startup_status < 0) {
-        perror("Creat Daemon");
-        closelog();
-        exit(EXIT_FAILURE);
-    } else if (startup_status == 0) {
-        syslog(LOG_NOTICE, "JGSWeb parent daemon start at [%d].", getpid());
-        sid = setsid();
-        if (sid < 0) {
-            perror("Second Dameon Claim");
-            exit(EXIT_FAILURE);
-        } else if (sid > 0) {
-            syslog(LOG_NOTICE, "JGSWeb parent daemon set sid at [%d].", sid);
-            startup_status = fork(); // 第二次fork，派生出一个孤儿
-            if (startup_status < 0) {
-                perror("Second Daemon Fork");
-                exit(EXIT_FAILURE);
-            } else if (startup_status > 0) {
-                syslog(LOG_NOTICE, "JGSWeb true daemon will start at [%d], daemon parent suicide.", startup_status);
-                exit(EXIT_SUCCESS);
-            } else {
-                syslog(LOG_NOTICE, "JGSWeb true daemon start at [%d].", getpid());
-            }
-        }
-    } else {
-        syslog(LOG_NOTICE, "JGSWeb try to start daemon parent at [%d], parent process will suicide.", startup_status);
-        printf("JGSWeb try to start daemon parent at [%d], parent process will suicide.\n", startup_status);
-        exit(EXIT_SUCCESS);
-    }
+    //creatDaemon();
 // 开发中不作为daemon运行
 
 
@@ -200,14 +218,7 @@ int main(int argc, char *argv[]) {
     sprintf(logincookie, "Cookie: program=ip; vlan=0; md5_login2=%s%%7C%s; ip=%s", account, password, IP);
     // 自定义检查头部
 
-    checksession = curl_easy_init();
 
-    curl_easy_setopt(checksession, CURLOPT_URL, "http://connect.rom.miui.com/generate_204");
-    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPALIVE, 1L);
-    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPIDLE, 120L);
-    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPINTVL, 60L);
-    curl_easy_setopt(checksession, CURLOPT_WRITEFUNCTION, rboutput);
-    curl_easy_setopt(checksession, CURLOPT_USERAGENT, "FFFFFFFFFFFFFFFFF");
 
 
     loginsession = curl_easy_init();
