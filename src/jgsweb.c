@@ -65,6 +65,7 @@ static _Bool check() {
         case 302:
         case 200:
             //sleep(1);
+            syslog(LOG_WARNING, "Check Failed, Error Code %ld", http_code);
             return false;
         default:
             syslog(LOG_WARNING, "Uncaught Error %ld", http_code);
