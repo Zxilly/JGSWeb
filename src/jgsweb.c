@@ -121,7 +121,7 @@ static _Bool login() {
             //TODO: implement get error UL
             //("drcom is %d\n",drcom_num);
             if (drcom_num == 2) {
-                syslog(LOG_ERR, "Login Failed, Retry in 14s.");
+                syslog(LOG_ERR, "Login Failed, Retry in 13s.");
                 sleep(13);
                 return login();
             } else if(drcom_num==3){
@@ -133,7 +133,7 @@ static _Bool login() {
                 creatCheckSession();
                 return true;
             } else {
-                syslog(LOG_ERR, "Login Failed with unknown error (Dr.com Code is %d), Retry in 14s.",drcom_num);
+                syslog(LOG_ERR, "Login Failed with unknown error (Dr.com Code is %d), Retry in 13s.",drcom_num);
                 sleep(13);
                 //printf("%s",mem_a.memory);
                 return login();
