@@ -16,8 +16,9 @@ static int logincount = 0;
 static int oldlogincount = 0;
 static int hourcount = 0;
 static pid_t startup_status, sid;
+static int checkflag=0;
 
-void creatCheckSession();
+
 
 static struct MemoryStruct {
     char *memory;
@@ -27,6 +28,7 @@ static struct MemoryStruct {
 static size_t rboutput(const char *d, size_t n, size_t l, void *p)
 {
     //syslog(LOG_DEBUG,"%s",d);
+    //printf("%s\n",d);
     (void)d;
     (void)p;
     return n*l;
@@ -52,6 +54,25 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
     return realsize;
 }
 
+void creatCheckSession(){
+    checksession = curl_easy_init();
+    if(!checkflag){
+        curl_easy_setopt(checksession, CURLOPT_URL, "http://dnet.mb.qq.com/rsp204");
+        //printf("switch to Tencent\n");
+        checkflag=!checkflag;
+    } else {
+        curl_easy_setopt(checksession, CURLOPT_URL, "http://connect.rom.miui.com/generate_204");
+        //printf("switch to Xiaomi\n");
+        checkflag=!checkflag;
+    }
+
+    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPALIVE, 1L);
+    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPIDLE, 120L);
+    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPINTVL, 60L);
+    curl_easy_setopt(checksession, CURLOPT_WRITEFUNCTION, rboutput);
+    curl_easy_setopt(checksession, CURLOPT_USERAGENT, "FFFFFFFFFFFFFFFFF");
+}
+
 static _Bool check() {
     checkcode = curl_easy_perform(checksession);
     long http_code = 0;
@@ -62,8 +83,10 @@ static _Bool check() {
         case 204:
             //printf("Check Success.\n");
             sleep(5);
+            //exit(0);
             return true;
         case 000:
+            //printf("get 000\n");
             return check();
         case 302:
         case 200:
@@ -82,11 +105,13 @@ static _Bool login() {
     checkcode = curl_easy_perform(loginsession);
     int drcom_num = 0;
     if (checkcode != CURLE_OK) {
+        sleep(1);
         return login();
     } else {
         sscanf(mem_a.memory, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num); //TODO: implement get error UL
+        //printf("drcom is %d\n",drcom_num);
         if (drcom_num == 2) {
-            //printf("drcom is %d\n",drcom_num);
+            //
             syslog(LOG_ERR, "Login Failed, Retry in 14s.");
             sleep(13);
             return false;
@@ -94,7 +119,7 @@ static _Bool login() {
             logincount++;
             //printf("Login Success.\n");
             syslog(LOG_NOTICE, "Login Success.");
-            //sleep(1);
+            sleep(2);
             curl_easy_cleanup(checksession);
             creatCheckSession();
             return true;
@@ -136,15 +161,7 @@ static void creatDaemon(){
     }
 }
 
-void creatCheckSession(){
-    checksession = curl_easy_init();
-    curl_easy_setopt(checksession, CURLOPT_URL, "http://connect.rom.miui.com/generate_204");
-    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPALIVE, 1L);
-    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPIDLE, 120L);
-    curl_easy_setopt(checksession, CURLOPT_TCP_KEEPINTVL, 60L);
-    curl_easy_setopt(checksession, CURLOPT_WRITEFUNCTION, rboutput);
-    curl_easy_setopt(checksession, CURLOPT_USERAGENT, "FFFFFFFFFFFFFFFFF");
-}
+
 
 int main(int argc, char *argv[]) {
     char checkurl[] = "http://connect.rom.miui.com/generate_204";
@@ -181,15 +198,15 @@ int main(int argc, char *argv[]) {
 
         FILE *p_file = NULL;
 
-//    p_file = popen(
-//            "ubus call network.interface.wan status | grep \\\"address\\\" | grep -oE '[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}'",
-//            "r");
-//    if (!p_file) {
-//        perror("GetIP");
-//    }
-//    fscanf(p_file, "%s", IP);
-//    pclose(p_file); //TEST
-    IP = "10.73.11.223";
+    p_file = popen(
+            "ubus call network.interface.wan status | grep \\\"address\\\" | grep -oE '[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}'",
+            "r");
+    if (!p_file) {
+        perror("GetIP");
+    }
+    fscanf(p_file, "%s", IP);
+    pclose(p_file); //TEST
+//    IP = "10.73.11.223";
 //    printf("%s",IP);
 
 
@@ -200,7 +217,7 @@ int main(int argc, char *argv[]) {
     // 理想的操作应该是使用 uci 或者访问 ubus 获取 IP，同时也可以在 IP 变更时得到通知
     // TODO: implement ubus client
 
-    //creatDaemon();
+    creatDaemon();
 // 开发中不作为daemon运行
 
 
@@ -219,7 +236,7 @@ int main(int argc, char *argv[]) {
     // 自定义检查头部
 
 
-
+    creatCheckSession();
 
     loginsession = curl_easy_init();
 
@@ -236,7 +253,6 @@ int main(int argc, char *argv[]) {
     syslog(LOG_NOTICE, "Curl inited.");
 
 
-
     for (;;) {
         if (check()) {
             if (difftime(time(NULL), count_t) >= 3600) {
@@ -251,6 +267,8 @@ int main(int argc, char *argv[]) {
                 }
             }
         } else {
+            syslog(LOG_INFO,"Checked network lost. Will try to recover in 13s.");
+            sleep(13);
             while (!login()) {}
         }
     }
