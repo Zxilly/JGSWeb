@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <regex.h>
-#include <curl/curl.h>
 #include <sys/types.h>
 #include <syslog.h>
 #include <signal.h>
 #include <unistd.h>
 #include <time.h>
 #include <stdbool.h>
+#include <curl/curl.h>
 
 static CURL *checksession, *loginsession;
 static CURLcode checkcode;
@@ -17,8 +17,11 @@ static int oldlogincount = 0;
 static int hourcount = 0;
 static pid_t startup_status, sid;
 static int checkflag=0;
+regex_t compR;
+regmatch_t regAns[1];
 
 
+static _Bool login();
 
 static struct MemoryStruct {
     char *memory;
@@ -78,7 +81,7 @@ static _Bool check() {
     long http_code = 0;
     curl_easy_getinfo(checksession, CURLINFO_RESPONSE_CODE, &http_code);
     //printf("http code is %ld\n",http_code);
-    //printf("check code is %d",checkcode);
+    //printf("check code is %d\n",checkcode);
     switch (http_code) {
         case 204:
             //printf("Check Success.\n");
@@ -87,42 +90,56 @@ static _Bool check() {
             return true;
         case 000:
             //printf("get 000\n");
+            sleep(1);
             return check();
         case 302:
         case 200:
             //sleep(1);
             syslog(LOG_WARNING, "Check Failed, Error Code %ld", http_code);
-            return false;
+            return login();
         default:
             syslog(LOG_WARNING, "Uncaught Error %ld", http_code);
             //sleep(1);
-            return false;
+            return login();
     }
 }
 
 static _Bool login() {
+    syslog(LOG_INFO,"Checked network lost. Will try to recover in 13s.");
+    sleep(13);
     //exit(EXIT_SUCCESS);
     checkcode = curl_easy_perform(loginsession);
     int drcom_num = 0;
     if (checkcode != CURLE_OK) {
+        //printf("Login curl Not OK\n");
         sleep(1);
         return login();
     } else {
-        sscanf(mem_a.memory, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num); //TODO: implement get error UL
-        //printf("drcom is %d\n",drcom_num);
-        if (drcom_num == 2) {
-            //
-            syslog(LOG_ERR, "Login Failed, Retry in 14s.");
-            sleep(13);
-            return false;
+        //printf("Login curl OK\n");
+        if(!regexec(&compR,mem_a.memory,1,regAns,0)){
+            sscanf(mem_a.memory+regAns[0].rm_so, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num);
+            //TODO: implement get error UL
+            //("drcom is %d\n",drcom_num);
+            if (drcom_num == 2) {
+                syslog(LOG_ERR, "Login Failed, Retry in 14s.");
+                sleep(13);
+                return login();
+            } else if(drcom_num==3){
+                logincount++;
+                //printf("Login Success.\n");
+                syslog(LOG_NOTICE, "Login Success.");
+                sleep(2);
+                curl_easy_cleanup(checksession);
+                creatCheckSession();
+                return true;
+            } else {
+                syslog(LOG_ERR, "Login Failed with unknown error (Dr.com Code is %d), Retry in 14s.",drcom_num);
+                sleep(13);
+                //printf("%s",mem_a.memory);
+                return login();
+            }
         } else {
-            logincount++;
-            //printf("Login Success.\n");
-            syslog(LOG_NOTICE, "Login Success.");
-            sleep(2);
-            curl_easy_cleanup(checksession);
-            creatCheckSession();
-            return true;
+            return login();
         }
     }
 }
@@ -176,6 +193,9 @@ int main(int argc, char *argv[]) {
     mem_a.memory = malloc(1);  /* will be grown as needed by the realloc above */
     mem_a.size = 0;    /* no data at this point */
 
+    regcomp(&compR,"<!--Dr.COMWebLoginID_[0-9].htm-->",REG_EXTENDED|REG_ICASE);
+
+
     //处理参数
     if (argc != 3) {
         perror("Argument num");
@@ -206,7 +226,7 @@ int main(int argc, char *argv[]) {
     }
     fscanf(p_file, "%s", IP);
     pclose(p_file); //TEST
-//    IP = "10.73.11.223";
+//    IP = "10.73.44.192";
 //    printf("%s",IP);
 
 
@@ -253,11 +273,32 @@ int main(int argc, char *argv[]) {
     syslog(LOG_NOTICE, "Curl inited.");
 
 
-    for (;;) {
-        if (check()) {
-            if (difftime(time(NULL), count_t) >= 3600) {
-                count_t = time(NULL);
-                if (logincount-oldlogincount>0){
+    check();
+
+//    for (;;) {
+//        if (check()) {
+//            if (difftime(time(NULL), count_t) >= 3600) {
+//                count_t = time(NULL);
+//                if (logincount-oldlogincount>0){
+//                    syslog(LOG_INFO,"Normal time in the past is %d hours",hourcount);
+//                    syslog(LOG_INFO,"Login %d time(s) in the past 1 hour, has login %d times in total.",logincount-oldlogincount,logincount);
+//                    oldlogincount = logincount;
+//                    hourcount = 0;
+//                } else {
+//                    syslog(LOG_INFO,"Running normal in the past %d hour(s).",++hourcount);
+//                }
+//            }
+//        } else {
+//            syslog(LOG_INFO,"Checked network lost. Will try to recover in 13s.");
+//            sleep(13);
+//            while (!login()) {}
+//        }
+//    }
+
+    while (check()){
+        if (difftime(time(NULL),count_t)>=3600) {
+            count_t = time(NULL);
+            if (logincount-oldlogincount>0){
                     syslog(LOG_INFO,"Normal time in the past is %d hours",hourcount);
                     syslog(LOG_INFO,"Login %d time(s) in the past 1 hour, has login %d times in total.",logincount-oldlogincount,logincount);
                     oldlogincount = logincount;
@@ -265,13 +306,9 @@ int main(int argc, char *argv[]) {
                 } else {
                     syslog(LOG_INFO,"Running normal in the past %d hour(s).",++hourcount);
                 }
-            }
-        } else {
-            syslog(LOG_INFO,"Checked network lost. Will try to recover in 13s.");
-            sleep(13);
-            while (!login()) {}
         }
     }
+
 
     closelog();
     curl_easy_cleanup(checksession);
