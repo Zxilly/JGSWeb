@@ -13,10 +13,12 @@
 static CURL *checksession, *loginsession;
 static CURLcode checkcode;
 static int logincount = 0;
-static int oldlogincount = 0;
-static int hourcount = 0;
+static int starttime = 0;
+static int oldfailedtime = 0;
+static int normaltimelength = 0;
+static int errortimelength = 0;
 static pid_t startup_status, sid;
-static int checkflag=0;
+static int checkflag = 0;
 regex_t compR;
 regmatch_t regAns[1];
 
@@ -28,13 +30,12 @@ static struct MemoryStruct {
     size_t size;
 } mem_a;
 
-static size_t rboutput(const char *d, size_t n, size_t l, void *p)
-{
+static size_t rboutput(const char *d, size_t n, size_t l, void *p) {
     //syslog(LOG_DEBUG,"%s",d);
     //printf("%s\n",d);
-    (void)d;
-    (void)p;
-    return n*l;
+    (void) d;
+    (void) p;
+    return n * l;
 }
 
 
@@ -57,16 +58,16 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
     return realsize;
 }
 
-void creatCheckSession(){
+void creatCheckSession() {
     checksession = curl_easy_init();
-    if(!checkflag){
+    if (!checkflag) {
         curl_easy_setopt(checksession, CURLOPT_URL, "http://dnet.mb.qq.com/rsp204");
         //printf("switch to Tencent\n");
-        checkflag=!checkflag;
+        checkflag = !checkflag;
     } else {
         curl_easy_setopt(checksession, CURLOPT_URL, "http://connect.rom.miui.com/generate_204");
         //printf("switch to Xiaomi\n");
-        checkflag=!checkflag;
+        checkflag = !checkflag;
     }
 
     curl_easy_setopt(checksession, CURLOPT_TCP_KEEPALIVE, 1L);
@@ -105,37 +106,46 @@ static _Bool check() {
 }
 
 static _Bool login() {
-    syslog(LOG_INFO,"Checked network lost. Will try to recover in 13s.");
+    syslog(LOG_INFO, "Checked network lost. Will try to recover in 13s.");
     sleep(13);
+    errortimelength+=13;
     //exit(EXIT_SUCCESS);
     checkcode = curl_easy_perform(loginsession);
     int drcom_num = 0;
     if (checkcode != CURLE_OK) {
         //printf("Login curl Not OK\n");
         sleep(1);
+        errortimelength+=1;
         return login();
     } else {
         //printf("Login curl OK\n");
-        if(!regexec(&compR,mem_a.memory,1,regAns,0)){
-            sscanf(mem_a.memory+regAns[0].rm_so, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num);
+        if (!regexec(&compR, mem_a.memory, 1, regAns, 0)) {
+            sscanf(mem_a.memory + regAns[0].rm_so, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num);
             //TODO: implement get error UL
             //("drcom is %d\n",drcom_num);
             if (drcom_num == 2) {
                 syslog(LOG_ERR, "Login Failed, Retry in 13s.");
+                errortimelength+=13;
                 sleep(13);
                 return login();
-            } else if(drcom_num==3){
+            } else if (drcom_num == 3) {
                 logincount++;
                 //printf("Login Success.\n");
+                normaltimelength=(int)difftime(time(NULL),starttime);
                 syslog(LOG_NOTICE, "Login Success.");
+                if (logincount!=1){
+                    syslog(LOG_NOTICE,"Have logined %d time(s) in %ds",logincount,(int)difftime(time(NULL),starttime));
+                    syslog(LOG_NOTICE,"Running normal %ds and Network Lost %ds.",normaltimelength,errortimelength);
+                    syslog(LOG_NOTICE,"SLA %.2f",(float)(normaltimelength-errortimelength)/(float)normaltimelength);
+                }
                 sleep(2);
                 curl_easy_cleanup(checksession);
                 creatCheckSession();
                 return true;
             } else {
-                syslog(LOG_ERR, "Login Failed with unknown error (Dr.com Code is %d), Retry in 13s.",drcom_num);
+                syslog(LOG_ERR, "Login Failed with unknown error (Dr.com Code is %d), Retry in 13s.", drcom_num);
+                errortimelength+=13;
                 sleep(13);
-                //printf("%s",mem_a.memory);
                 return login();
             }
         } else {
@@ -144,7 +154,7 @@ static _Bool login() {
     }
 }
 
-static void creatDaemon(){
+static void creatDaemon() {
     signal(SIGCHLD, SIG_IGN);
     signal(SIGHUP, SIG_IGN); // ignore 父进程挂掉的关闭信号
     startup_status = fork();
@@ -156,9 +166,9 @@ static void creatDaemon(){
         syslog(LOG_NOTICE, "JGSWeb parent daemon start at [%d].", getpid());
         sid = setsid();
         if (sid < 0) {
-            perror("Second Dameon Claim");
+            perror("Second Daemon Claim");
             exit(EXIT_FAILURE);
-        } else if (sid > 0) {
+        } else {
             syslog(LOG_NOTICE, "JGSWeb parent daemon set sid at [%d].", sid);
             startup_status = fork(); // 第二次fork，派生出一个孤儿
             if (startup_status < 0) {
@@ -173,11 +183,10 @@ static void creatDaemon(){
         }
     } else {
         syslog(LOG_NOTICE, "JGSWeb try to start daemon parent at [%d], parent process will suicide.", startup_status);
-        printf("JGSWeb try to start daemon parent at [%d], parent process will suicide.\n", startup_status);
+        // printf("JGSWeb try to start daemon parent at [%d], parent process will suicide.\n", startup_status);
         exit(EXIT_SUCCESS);
     }
 }
-
 
 
 int main(int argc, char *argv[]) {
@@ -193,7 +202,7 @@ int main(int argc, char *argv[]) {
     mem_a.memory = malloc(1);  /* will be grown as needed by the realloc above */
     mem_a.size = 0;    /* no data at this point */
 
-    regcomp(&compR,"<!--Dr.COMWebLoginID_[0-9].htm-->",REG_EXTENDED|REG_ICASE);
+    regcomp(&compR, "<!--Dr.COMWebLoginID_[0-9].htm-->", REG_EXTENDED | REG_ICASE);
 
 
     //处理参数
@@ -216,7 +225,7 @@ int main(int argc, char *argv[]) {
         password = argv[2];
     }
 
-        FILE *p_file = NULL;
+    FILE *p_file = NULL;
 
     p_file = popen(
             "ubus call network.interface.wan status | grep \\\"address\\\" | grep -oE '[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}'",
@@ -272,41 +281,28 @@ int main(int argc, char *argv[]) {
 
     syslog(LOG_NOTICE, "Curl inited.");
 
+    oldfailedtime = time(NULL);
+    starttime = oldfailedtime;
 
-    check();
 
-//    for (;;) {
-//        if (check()) {
-//            if (difftime(time(NULL), count_t) >= 3600) {
-//                count_t = time(NULL);
-//                if (logincount-oldlogincount>0){
-//                    syslog(LOG_INFO,"Normal time in the past is %d hours",hourcount);
-//                    syslog(LOG_INFO,"Login %d time(s) in the past 1 hour, has login %d times in total.",logincount-oldlogincount,logincount);
-//                    oldlogincount = logincount;
-//                    hourcount = 0;
-//                } else {
-//                    syslog(LOG_INFO,"Running normal in the past %d hour(s).",++hourcount);
-//                }
-//            }
-//        } else {
-//            syslog(LOG_INFO,"Checked network lost. Will try to recover in 13s.");
-//            sleep(13);
-//            while (!login()) {}
+//    while (check()) {
+//        if (difftime(time(NULL), count_t) >= 3600) {
+//            count_t = time(NULL);
+//            if (logincount - oldlogincount <= 0) {
+//                // syslog(LOG_INFO, "Normal time in the past is %d s", hourcount);
+////                syslog(LOG_INFO, "Login %d time(s) in the past 1 hour, has login %d times in total.",
+////                       logincount - oldlogincount, logincount);
+////                oldlogincount = logincount;
+////                hourcount = 0;
+//                syslog(LOG_INFO, "Running normal in the past %d hour(s).", ++hourcount);
+//            }/* else {
+//                syslog(LOG_INFO, "Running normal in the past %d hour(s).", ++hourcount);
+//            }*/
 //        }
 //    }
 
-    while (check()){
-        if (difftime(time(NULL),count_t)>=3600) {
-            count_t = time(NULL);
-            if (logincount-oldlogincount>0){
-                    syslog(LOG_INFO,"Normal time in the past is %d hours",hourcount);
-                    syslog(LOG_INFO,"Login %d time(s) in the past 1 hour, has login %d times in total.",logincount-oldlogincount,logincount);
-                    oldlogincount = logincount;
-                    hourcount = 0;
-                } else {
-                    syslog(LOG_INFO,"Running normal in the past %d hour(s).",++hourcount);
-                }
-        }
+    for(;;){
+        check();
     }
 
 
