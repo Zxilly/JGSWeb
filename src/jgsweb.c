@@ -20,6 +20,7 @@ static pid_t startup_status, sid;
 static int checkflag = 0;
 regex_t compR;
 regmatch_t regAns[1];
+static char timestr[60];
 
 
 static _Bool login();
@@ -37,6 +38,22 @@ static size_t rboutput(const char *d, size_t n, size_t l, void *p) {
     return n * l;
 }
 
+
+char *time2str(int sec) {
+    memset(timestr, 0, sizeof(timestr));
+    if (sec <= 60) {
+        sprintf(timestr, "%d seconds", sec);
+    } else if (sec <= 3600) {
+        sprintf(timestr, "%d minutes and %d seconds", sec / 60, sec % 60);
+    } else if (sec <= 86400) {
+        sprintf(timestr, "%d hours, %d minutes and %d seconds", sec / 3600, sec % 3600 / 60, sec % 60);
+    } else {
+        sprintf(timestr, "%d days, %d hours, %d minutes and %d seconds", sec / 86400, sec % 86400 / 3600,
+                sec % 3600 / 60,
+                sec % 60);
+    }
+    return timestr;
+}
 
 static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp) {
     size_t realsize = size * nmemb;
@@ -107,14 +124,14 @@ static _Bool check() {
 static _Bool login() {
     syslog(LOG_INFO, "Checked network lost. Will try to recover in 13s.");
     sleep(13);
-    errortimelength+=13;
+    errortimelength += 13;
     //exit(EXIT_SUCCESS);
     checkcode = curl_easy_perform(loginsession);
     int drcom_num = 0;
     if (checkcode != CURLE_OK) {
         //printf("Login curl Not OK\n");
         sleep(1);
-        errortimelength+=1;
+        errortimelength += 1;
         return login();
     } else {
         //printf("Login curl OK\n");
@@ -124,18 +141,21 @@ static _Bool login() {
             //("drcom is %d\n",drcom_num);
             if (drcom_num == 2) {
                 syslog(LOG_ERR, "Login Failed, Retry in 13s.");
-                errortimelength+=13;
+                errortimelength += 13;
                 sleep(13);
                 return login();
             } else if (drcom_num == 3) {
                 logincount++;
                 //printf("Login Success.\n");
-                normaltimelength=(int)difftime(time(NULL),starttime);
-                syslog(LOG_NOTICE, "Login Success.");
-                if (logincount!=1){
-                    syslog(LOG_NOTICE,"Have logined %d time(s) in %ds",logincount,(int)difftime(time(NULL),starttime));
-                    syslog(LOG_NOTICE,"Running normal %ds and Network Lost %ds.",normaltimelength,errortimelength);
-                    syslog(LOG_NOTICE,"SLA %.2f",(float)(normaltimelength-errortimelength)/(float)normaltimelength);
+                normaltimelength = (int) difftime(time(NULL), starttime);
+                syslog(LOG_NOTICE, "Login Success");
+                if (logincount != 1) {
+                    syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
+                           time2str((int) difftime(time(NULL), starttime)));
+                    syslog(LOG_NOTICE, "Running normal %s and Network Lost %s.", time2str(normaltimelength),
+                           time2str(errortimelength));
+                    syslog(LOG_NOTICE, "SLA is %.5f",
+                           (double) (normaltimelength - errortimelength) / (double) normaltimelength);
                 }
                 sleep(2);
                 curl_easy_cleanup(checksession);
@@ -143,7 +163,7 @@ static _Bool login() {
                 return true;
             } else {
                 syslog(LOG_ERR, "Login Failed with unknown error (Dr.com Code is %d), Retry in 13s.", drcom_num);
-                errortimelength+=13;
+                errortimelength += 13;
                 sleep(13);
                 return login();
             }
@@ -280,7 +300,7 @@ int main(int argc, char *argv[]) {
 
     syslog(LOG_NOTICE, "Curl inited.");
 
-    starttime = (int)time(NULL);
+    starttime = (int) time(NULL);
 
 
 //    while (check()) {
@@ -299,7 +319,7 @@ int main(int argc, char *argv[]) {
 //        }
 //    }
 
-    for(;;){
+    for (;;) {
         check();
     }
 
