@@ -14,7 +14,6 @@ static CURL *checksession, *loginsession;
 static CURLcode checkcode;
 static int logincount = 0;
 static int starttime = 0;
-static int oldfailedtime = 0;
 static int normaltimelength = 0;
 static int errortimelength = 0;
 static pid_t startup_status, sid;
@@ -281,8 +280,7 @@ int main(int argc, char *argv[]) {
 
     syslog(LOG_NOTICE, "Curl inited.");
 
-    oldfailedtime = time(NULL);
-    starttime = oldfailedtime;
+    starttime = (int)time(NULL);
 
 
 //    while (check()) {
