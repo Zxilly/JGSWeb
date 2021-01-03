@@ -151,7 +151,7 @@ static _Bool login() {
                 syslog(LOG_NOTICE, "Login Success");
                 syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
                        time2str((int) difftime(time(NULL), starttime)));
-                syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength));
+                syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength - errortimelength));
                 syslog(LOG_NOTICE, "Network Lost %s.", time2str(errortimelength));
                 syslog(LOG_NOTICE, "SLA is %.5f",
                        (double) (normaltimelength - errortimelength) / (double) normaltimelength);
