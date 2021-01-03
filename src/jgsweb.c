@@ -122,7 +122,7 @@ static _Bool check() {
 }
 
 static _Bool login() {
-    syslog(LOG_INFO, "Checked network lost. Will try to recover in 13s.");
+    // syslog(LOG_INFO, "Checked network lost. Will try to recover in 13s.");
     sleep(13);
     errortimelength += 13;
     //exit(EXIT_SUCCESS);
@@ -149,14 +149,12 @@ static _Bool login() {
                 //printf("Login Success.\n");
                 normaltimelength = (int) difftime(time(NULL), starttime);
                 syslog(LOG_NOTICE, "Login Success");
-                if (logincount != 1) {
-                    syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
-                           time2str((int) difftime(time(NULL), starttime)));
-                    syslog(LOG_NOTICE, "Running normal %s and Network Lost %s.", time2str(normaltimelength),
-                           time2str(errortimelength));
-                    syslog(LOG_NOTICE, "SLA is %.5f",
-                           (double) (normaltimelength - errortimelength) / (double) normaltimelength);
-                }
+                syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
+                       time2str((int) difftime(time(NULL), starttime)));
+                syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength));
+                syslog(LOG_NOTICE, "Network Lost %s.", time2str(errortimelength));
+                syslog(LOG_NOTICE, "SLA is %.5f",
+                       (double) (normaltimelength - errortimelength) / (double) normaltimelength);
                 sleep(2);
                 curl_easy_cleanup(checksession);
                 creatCheckSession();
