@@ -23,6 +23,7 @@ regmatch_t regAns[1];
 static char timestr[60];
 
 
+
 static _Bool login();
 
 static struct MemoryStruct {
@@ -121,8 +122,13 @@ static _Bool check() {
     }
 }
 
-static _Bool login() {
+static bool login() {
     // syslog(LOG_INFO, "Checked network lost. Will try to recover in 13s.");
+    time_t tmp = time(NULL);
+    struct tm *tmptime = localtime(&tmp);
+    while (tmptime->tm_hour>=0 && tmptime->tm_hour<=6) {
+        sleep(1200);
+    }
     sleep(13);
     errortimelength += 13;
     //exit(EXIT_SUCCESS);

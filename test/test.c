@@ -26,7 +26,8 @@ char *time2str(int sec) {
 
 
 int main(int argc, char *argv[]) {
-
-    printf("%s", time2str(2043576));
+    time_t a = time(NULL);
+    struct tm *b = localtime(&a);
+    printf("%d",b->tm_hour);
 
 }
