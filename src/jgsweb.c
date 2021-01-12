@@ -128,6 +128,7 @@ static bool login() {
     struct tm *tmptime = localtime(&tmp);
     while (tmptime->tm_hour>=0 && tmptime->tm_hour<=6) {
         sleep(1200);
+        tmptime = localtime(&tmp);
     }
     sleep(13);
     errortimelength += 13;
