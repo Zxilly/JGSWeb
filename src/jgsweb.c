@@ -23,7 +23,6 @@ regmatch_t regAns[1];
 static char timestr[60];
 
 
-
 static _Bool login();
 
 static struct MemoryStruct {
@@ -98,55 +97,48 @@ static _Bool check() {
     checkcode = curl_easy_perform(checksession);
     long http_code = 0;
     curl_easy_getinfo(checksession, CURLINFO_RESPONSE_CODE, &http_code);
-    //printf("http code is %ld\n",http_code);
-    //printf("check code is %d\n",checkcode);
+
     switch (http_code) {
         case 204:
-            //printf("Check Success.\n");
             sleep(5);
-            //exit(0);
             return true;
         case 000:
-            //printf("get 000\n");
             sleep(1);
             return check();
         case 302:
         case 200:
-            //sleep(1);
             syslog(LOG_WARNING, "Check Failed, Error Code %ld", http_code);
             return login();
         default:
             syslog(LOG_WARNING, "Uncaught Error %ld", http_code);
-            //sleep(1);
             return login();
     }
 }
 
 static bool login() {
-    // syslog(LOG_INFO, "Checked network lost. Will try to recover in 13s.");
+    int hour = 0;
     time_t tmp = time(NULL);
     struct tm *tmptime = localtime(&tmp);
-    while (tmptime->tm_hour>=0 && tmptime->tm_hour<=6) {
+    hour = tmptime->tm_hour;
+    while (hour >= 0 && hour <= 6) {
         sleep(1200);
         tmp = time(NULL);
         tmptime = localtime(&tmp);
-    }
+        hour = tmptime->tm_hour;
+        syslog(LOG_DEBUG, "%d:%d:%d, another loop.", tmptime->tm_hour, tmptime->tm_min, tmptime->tm_sec);
+    } // FIXME: endless loop
     sleep(13);
     errortimelength += 13;
-    //exit(EXIT_SUCCESS);
     checkcode = curl_easy_perform(loginsession);
     int drcom_num = 0;
     if (checkcode != CURLE_OK) {
-        //printf("Login curl Not OK\n");
         sleep(1);
         errortimelength += 1;
         return login();
     } else {
-        //printf("Login curl OK\n");
         if (!regexec(&compR, mem_a.memory, 1, regAns, 0)) {
             sscanf(mem_a.memory + regAns[0].rm_so, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num);
             //TODO: implement get error UL
-            //("drcom is %d\n",drcom_num);
             if (drcom_num == 2) {
                 syslog(LOG_ERR, "Login Failed, Retry in 13s.");
                 errortimelength += 13;
@@ -154,7 +146,6 @@ static bool login() {
                 return login();
             } else if (drcom_num == 3) {
                 logincount++;
-                //printf("Login Success.\n");
                 normaltimelength = (int) difftime(time(NULL), starttime);
                 syslog(LOG_NOTICE, "Login Success");
                 syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
