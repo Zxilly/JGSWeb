@@ -128,6 +128,7 @@ static bool login() {
     struct tm *tmptime = localtime(&tmp);
     while (tmptime->tm_hour>=0 && tmptime->tm_hour<=6) {
         sleep(1200);
+        tmp = time(NULL);
         tmptime = localtime(&tmp);
     }
     sleep(13);

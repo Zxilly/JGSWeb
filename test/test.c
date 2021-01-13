@@ -6,6 +6,7 @@
 #include <string.h>
 #include <curl/curl.h>
 #include <regex.h>
+#include <unistd.h>
 
 char timestr[60];
 
@@ -26,8 +27,12 @@ char *time2str(int sec) {
 
 
 int main(int argc, char *argv[]) {
-    time_t a = time(NULL);
-    struct tm *b = localtime(&a);
-    printf("%d",b->tm_hour);
+    struct tm *tmptime = NULL;
+    while (tmptime->tm_sec >= 0 && tmptime->tm_sec <= 30) {
+        sleep(1);
+        time_t tmp = 0;
+        printf("")
+        tmptime = localtime(&tmp);
+    }
 
 }

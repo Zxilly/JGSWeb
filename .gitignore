@@ -64,4 +64,4 @@ dkms.conf
 /cmake-build-debug/
 /cmake-build-wsl/
 /cmake-build-ubuntu/
-/cmake-build-debug-ubuntu20/
+/cmake-build-debug-ubuntu-20/
