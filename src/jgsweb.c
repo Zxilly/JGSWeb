@@ -18,6 +18,8 @@ static int normaltimelength = 0;
 static int errortimelength = 0;
 static pid_t startup_status, sid;
 static int checkflag = 0;
+static bool duplicate_flag = false;
+
 regex_t compR;
 regmatch_t regAns[1];
 static char timestr[60];
@@ -74,8 +76,7 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
     return realsize;
 }
 
-void creatCheckSession() {
-    checksession = curl_easy_init();
+void changeCheckServer() {
     if (!checkflag) {
         curl_easy_setopt(checksession, CURLOPT_URL, "http://dnet.mb.qq.com/rsp204");
         //printf("switch to Tencent\n");
@@ -85,6 +86,12 @@ void creatCheckSession() {
         //printf("switch to Xiaomi\n");
         checkflag = !checkflag;
     }
+}
+
+void creatCheckSession() {
+    checksession = curl_easy_init();
+
+    changeCheckServer();
 
     curl_easy_setopt(checksession, CURLOPT_TCP_KEEPALIVE, 1L);
     curl_easy_setopt(checksession, CURLOPT_TCP_KEEPIDLE, 120L);
@@ -103,12 +110,17 @@ static _Bool check() {
             sleep(5);
             return true;
         case 000:
+            syslog(LOG_WARNING, "Checked DNS Error.");
             sleep(1);
             return check();
         case 302:
         case 200:
             syslog(LOG_WARNING, "Check Failed, Error Code %ld", http_code);
             return login();
+        case 504:
+            syslog(LOG_WARNING, "Test Server Time out. Changing...");
+            changeCheckServer();
+            return true;
         default:
             syslog(LOG_WARNING, "Uncaught Error %ld", http_code);
             return login();
@@ -140,8 +152,13 @@ static bool login() {
             sscanf(mem_a.memory + regAns[0].rm_so, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num);
             //TODO: implement get error UL
             if (drcom_num == 2) {
-                syslog(LOG_ERR, "Login Failed, Retry in 13s.");
-                errortimelength += 13;
+                if (duplicate_flag) {
+                    syslog(LOG_ERR, "Duplicate Login Checked, Retry in 17s.");
+                    errortimelength += 17;
+                } else {
+                    syslog(LOG_ERR, "Duplicate Login Checked, Retry in 13s.");
+                    errortimelength += 13;
+                }
                 sleep(13);
                 return login();
             } else if (drcom_num == 3) {
