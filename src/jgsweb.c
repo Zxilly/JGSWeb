@@ -155,11 +155,12 @@ static bool login() {
                 if (duplicate_flag) {
                     syslog(LOG_ERR, "Duplicate Login Checked, Retry in 17s.");
                     errortimelength += 17;
+                    sleep(17);
                 } else {
                     syslog(LOG_ERR, "Duplicate Login Checked, Retry in 13s.");
                     errortimelength += 13;
+                    sleep(13);
                 }
-                sleep(13);
                 return login();
             } else if (drcom_num == 3) {
                 logincount++;
