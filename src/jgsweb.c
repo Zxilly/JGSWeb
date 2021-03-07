@@ -13,9 +13,11 @@
 static CURL *checksession, *loginsession;
 static CURLcode checkcode;
 static int logincount = 0;
-static int starttime = 0;
-static int normaltimelength = 0;
-static int errortimelength = 0;
+static time_t starttime = 0;
+static time_t lastsuccesstime = 0;
+static time_t normaltimelength = 0;
+static time_t averagenormaltime = 0;
+static time_t errortimelength = 0;
 static pid_t startup_status, sid;
 static int checkflag = 0;
 static bool duplicate_flag = false;
@@ -41,16 +43,16 @@ static size_t rboutput(const char *d, size_t n, size_t l, void *p) {
 }
 
 
-char *time2str(int sec) {
+char *time2str(time_t sec) {
     memset(timestr, 0, sizeof(timestr));
     if (sec <= 60) {
-        sprintf(timestr, "%d seconds", sec);
+        sprintf(timestr, "%ld seconds", sec);
     } else if (sec <= 3600) {
-        sprintf(timestr, "%d minutes and %d seconds", sec / 60, sec % 60);
+        sprintf(timestr, "%ld minutes and %ld seconds", sec / 60, sec % 60);
     } else if (sec <= 86400) {
-        sprintf(timestr, "%d hours, %d minutes and %d seconds", sec / 3600, sec % 3600 / 60, sec % 60);
+        sprintf(timestr, "%ld hours, %ld minutes and %ld seconds", sec / 3600, sec % 3600 / 60, sec % 60);
     } else {
-        sprintf(timestr, "%d days, %d hours, %d minutes and %d seconds", sec / 86400, sec % 86400 / 3600,
+        sprintf(timestr, "%ld days, %ld hours, %ld minutes and %ld seconds", sec / 86400, sec % 86400 / 3600,
                 sec % 3600 / 60,
                 sec % 60);
     }
@@ -164,14 +166,24 @@ static bool login() {
                 return login();
             } else if (drcom_num == 3) {
                 logincount++;
-                normaltimelength = (int) difftime(time(NULL), starttime);
+                normaltimelength = difftime(time(NULL), starttime);
                 syslog(LOG_NOTICE, "Login Success");
                 syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
-                       time2str((int) difftime(time(NULL), starttime)));
+                       time2str(difftime(time(NULL), starttime)));
                 syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength - errortimelength));
                 syslog(LOG_NOTICE, "Network Lost %s.", time2str(errortimelength));
                 syslog(LOG_NOTICE, "SLA is %.5f",
                        (double) (normaltimelength - errortimelength) / (double) normaltimelength);
+
+                if (lastsuccesstime == 0) {
+                    lastsuccesstime = time(NULL);
+                    syslog(LOG_NOTICE, "This is first time login.");
+                } else {
+                    syslog(LOG_NOTICE, "This part normal time is %s", time2str(time(NULL) - lastsuccesstime));
+                    lastsuccesstime = time(NULL);
+                    syslog(LOG_NOTICE, "Average normal time is %s", time2str(normaltimelength / logincount));
+                }
+
                 sleep(2);
                 curl_easy_cleanup(checksession);
                 creatCheckSession();
@@ -224,7 +236,6 @@ static void creatDaemon() {
 
 
 int main(int argc, char *argv[]) {
-    char checkurl[] = "http://connect.rom.miui.com/generate_204";
     char loginurl[] = "http://192.168.167.46/a70.htm";
     char *account;
     char *password;
