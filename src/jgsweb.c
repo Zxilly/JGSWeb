@@ -15,8 +15,8 @@ static CURLcode checkcode;
 static int logincount = 0;
 static time_t starttime = 0;
 static time_t lastsuccesstime = 0;
+static time_t starttimelength = 0;
 static time_t normaltimelength = 0;
-static time_t averagenormaltime = 0;
 static time_t errortimelength = 0;
 static pid_t startup_status, sid;
 static int checkflag = 0;
@@ -130,17 +130,21 @@ static _Bool check() {
 }
 
 static bool login() {
-    int hour = 0;
+    int hour = 0, weekday = 0;
     time_t tmp = time(NULL);
     struct tm *tmptime = localtime(&tmp);
     hour = tmptime->tm_hour;
-    while (hour >= 0 && hour <= 6) {
-        sleep(1200);
-        tmp = time(NULL);
-        tmptime = localtime(&tmp);
-        hour = tmptime->tm_hour;
-        syslog(LOG_DEBUG, "%d:%d:%d, another loop.", tmptime->tm_hour, tmptime->tm_min, tmptime->tm_sec);
-    } // FIXME: endless loop
+    weekday = tmptime->tm_wday;
+    if (weekday >= 1 && weekday <= 5) {
+        while (hour >= 0 && hour <= 6) {
+            sleep(1200);
+            errortimelength += 1200;
+            tmp = time(NULL);
+            tmptime = localtime(&tmp);
+            hour = tmptime->tm_hour;
+            syslog(LOG_DEBUG, "%d:%d:%d, another loop.", tmptime->tm_hour, tmptime->tm_min, tmptime->tm_sec);
+        } // FIXME: endless loop
+    }
     sleep(13);
     errortimelength += 13;
     checkcode = curl_easy_perform(loginsession);
@@ -166,14 +170,16 @@ static bool login() {
                 return login();
             } else if (drcom_num == 3) {
                 logincount++;
-                normaltimelength = difftime(time(NULL), starttime);
+                starttimelength = difftime(time(NULL), starttime);
+                normaltimelength = starttimelength - errortimelength;
                 syslog(LOG_NOTICE, "Login Success");
                 syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
                        time2str(difftime(time(NULL), starttime)));
-                syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength - errortimelength));
+                syslog(LOG_NOTICE, "Have started %s.", time2str(starttimelength));
+                syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength));
                 syslog(LOG_NOTICE, "Network Lost %s.", time2str(errortimelength));
                 syslog(LOG_NOTICE, "SLA is %.5f",
-                       (double) (normaltimelength - errortimelength) / (double) normaltimelength);
+                       (double) normaltimelength / (double) starttimelength);
 
                 if (lastsuccesstime == 0) {
                     lastsuccesstime = time(NULL);
