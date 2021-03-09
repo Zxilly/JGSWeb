@@ -143,6 +143,16 @@ static bool login() {
             tmptime = localtime(&tmp);
             hour = tmptime->tm_hour;
             syslog(LOG_DEBUG, "%d:%d:%d, another loop.", tmptime->tm_hour, tmptime->tm_min, tmptime->tm_sec);
+            starttimelength = difftime(time(NULL), starttime);
+            normaltimelength = starttimelength - errortimelength;
+            syslog(LOG_NOTICE, "Login Success");
+            syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
+                   time2str(difftime(time(NULL), starttime)));
+            syslog(LOG_NOTICE, "Have started %s.", time2str(starttimelength));
+            syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength));
+            syslog(LOG_NOTICE, "Network Lost %s.", time2str(errortimelength));
+            syslog(LOG_NOTICE, "SLA is %.5f",
+                   (double) normaltimelength / (double) starttimelength);
         } // FIXME: endless loop
     }
     sleep(13);
@@ -185,7 +195,7 @@ static bool login() {
                     lastsuccesstime = time(NULL);
                     syslog(LOG_NOTICE, "This is first time login.");
                 } else {
-                    syslog(LOG_NOTICE, "This part normal time is %s", time2str(time(NULL) - lastsuccesstime));
+                    syslog(LOG_NOTICE, "This part normal time is %ld seconds", time(NULL) - lastsuccesstime);
                     lastsuccesstime = time(NULL);
                     syslog(LOG_NOTICE, "Average normal time is %s", time2str(normaltimelength / logincount));
                 }
