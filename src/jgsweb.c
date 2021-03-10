@@ -20,7 +20,9 @@ static time_t normaltimelength = 0;
 static time_t errortimelength = 0;
 static pid_t startup_status, sid;
 static int checkflag = 0;
+
 static bool duplicate_flag = false;
+static bool first_flag = false;
 
 regex_t compR;
 regmatch_t regAns[1];
@@ -145,14 +147,14 @@ static bool login() {
             syslog(LOG_DEBUG, "%d:%d:%d, another loop.", tmptime->tm_hour, tmptime->tm_min, tmptime->tm_sec);
             starttimelength = difftime(time(NULL), starttime);
             normaltimelength = starttimelength - errortimelength;
-            syslog(LOG_NOTICE, "Login Success");
-            syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
-                   time2str(difftime(time(NULL), starttime)));
             syslog(LOG_NOTICE, "Have started %s.", time2str(starttimelength));
             syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength));
             syslog(LOG_NOTICE, "Network Lost %s.", time2str(errortimelength));
             syslog(LOG_NOTICE, "SLA is %.5f",
                    (double) normaltimelength / (double) starttimelength);
+            if (!first_flag) {
+                first_flag = true;
+            }
         } // FIXME: endless loop
     }
     sleep(13);
@@ -191,9 +193,10 @@ static bool login() {
                 syslog(LOG_NOTICE, "SLA is %.5f",
                        (double) normaltimelength / (double) starttimelength);
 
-                if (lastsuccesstime == 0) {
+                if (lastsuccesstime == 0 || first_flag) {
                     lastsuccesstime = time(NULL);
                     syslog(LOG_NOTICE, "This is first time login.");
+                    first_flag = false;
                 } else {
                     syslog(LOG_NOTICE, "This part normal time is %ld seconds", time(NULL) - lastsuccesstime);
                     lastsuccesstime = time(NULL);
