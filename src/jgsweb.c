@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <regex.h>
-#include <sys/types.h>
 #include <syslog.h>
 #include <signal.h>
 #include <unistd.h>
@@ -82,11 +81,11 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
 
 void changeCheckServer() {
     if (!checkflag) {
-        curl_easy_setopt(checksession, CURLOPT_URL, "http://dnet.mb.qq.com/rsp204");
+        curl_easy_setopt(checksession, CURLOPT_URL, "https://dnet.mb.qq.com/rsp204");
         //printf("switch to Tencent\n");
         checkflag = !checkflag;
     } else {
-        curl_easy_setopt(checksession, CURLOPT_URL, "http://connect.rom.miui.com/generate_204");
+        curl_easy_setopt(checksession, CURLOPT_URL, "https://connect.rom.miui.com/generate_204");
         //printf("switch to Xiaomi\n");
         checkflag = !checkflag;
     }
