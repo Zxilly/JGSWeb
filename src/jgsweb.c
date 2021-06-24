@@ -146,7 +146,7 @@ static bool login() {
             }
         } // FIXME: endless loop
     }
-    sleep(3);
+    sleep(13);
     errortimelength += 3;
     checkcode = curl_easy_perform(loginsession);
     int drcom_num = 0;
@@ -164,6 +164,7 @@ static bool login() {
                     errortimelength += 17;
                     sleep(17);
                 } else {
+                    duplicate_flag = true;
                     syslog(LOG_ERR, "Duplicate Login Checked, Retry in 13s.");
                     errortimelength += 13;
                     sleep(13);
