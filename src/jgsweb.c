@@ -92,11 +92,20 @@ void creatCheckSession() {
     curl_easy_setopt(checksession, CURLOPT_TCP_KEEPIDLE, 120L);
     curl_easy_setopt(checksession, CURLOPT_TCP_KEEPINTVL, 60L);
     curl_easy_setopt(checksession, CURLOPT_WRITEFUNCTION, rboutput);
+    curl_easy_setopt(checksession, CURLOPT_TIMEOUT, 2L);
     curl_easy_setopt(checksession, CURLOPT_USERAGENT, "FFFFFFFFFFFFFFFFF");
 }
 
 static bool check() {
     checkcode = curl_easy_perform(checksession);
+
+    if (checkcode != CURLE_OK) {
+        if (checkcode == CURLE_OPERATION_TIMEDOUT) {
+            syslog(LOG_WARNING, "Check Timeout. Potential Connection lost.");
+            return check();
+        }
+    }
+
     long http_code = 0;
     curl_easy_getinfo(checksession, CURLINFO_RESPONSE_CODE, &http_code);
 
@@ -235,7 +244,7 @@ static void creatDaemon() {
 
 
 int main(int argc, char *argv[]) {
-    char loginurl[] = "http://192.168.167.46/a70.htm";
+    char loginurl[] = "http://192.168.167.46/";
     char *account;
     char *password;
     char loginpostfield[200];
