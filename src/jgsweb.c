@@ -80,7 +80,7 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
 }
 
 void setupCheckServer() {
-    curl_easy_setopt(checksession, CURLOPT_URL, "http://47.100.56.127:31666/");
+    curl_easy_setopt(checksession, CURLOPT_URL, "http://47.100.56.127/");
 }
 
 void creatCheckSession() {
@@ -111,7 +111,7 @@ static bool check() {
 
     switch (http_code) {
         case 666:
-            sleep(5);
+            sleep(1);
             return true;
         case 000:
             syslog(LOG_WARNING, "Checked DNS Error.");
