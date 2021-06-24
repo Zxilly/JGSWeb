@@ -79,22 +79,14 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
     return realsize;
 }
 
-void changeCheckServer() {
-    if (!checkflag) {
-        curl_easy_setopt(checksession, CURLOPT_URL, "https://dnet.mb.qq.com/rsp204");
-        //printf("switch to Tencent\n");
-        checkflag = !checkflag;
-    } else {
-        curl_easy_setopt(checksession, CURLOPT_URL, "https://connect.rom.miui.com/generate_204");
-        //printf("switch to Xiaomi\n");
-        checkflag = !checkflag;
-    }
+void setupCheckServer() {
+    curl_easy_setopt(checksession, CURLOPT_URL, "http://47.100.56.127:31666/");
 }
 
 void creatCheckSession() {
     checksession = curl_easy_init();
 
-    changeCheckServer();
+    setupCheckServer();
 
     curl_easy_setopt(checksession, CURLOPT_TCP_KEEPALIVE, 1L);
     curl_easy_setopt(checksession, CURLOPT_TCP_KEEPIDLE, 120L);
@@ -103,13 +95,13 @@ void creatCheckSession() {
     curl_easy_setopt(checksession, CURLOPT_USERAGENT, "FFFFFFFFFFFFFFFFF");
 }
 
-static _Bool check() {
+static bool check() {
     checkcode = curl_easy_perform(checksession);
     long http_code = 0;
     curl_easy_getinfo(checksession, CURLINFO_RESPONSE_CODE, &http_code);
 
     switch (http_code) {
-        case 204:
+        case 666:
             sleep(5);
             return true;
         case 000:
@@ -120,10 +112,6 @@ static _Bool check() {
         case 200:
             syslog(LOG_WARNING, "Check Failed, Error Code %ld", http_code);
             return login();
-        case 504:
-            syslog(LOG_WARNING, "Test Server Time out. Changing...");
-            changeCheckServer();
-            return true;
         default:
             syslog(LOG_WARNING, "Uncaught Error %ld", http_code);
             return login();
@@ -144,13 +132,6 @@ static bool login() {
             tmptime = localtime(&tmp);
             hour = tmptime->tm_hour;
             syslog(LOG_DEBUG, "%d:%d:%d, another loop.", tmptime->tm_hour, tmptime->tm_min, tmptime->tm_sec);
-            starttimelength = difftime(time(NULL), starttime);
-            normaltimelength = starttimelength - errortimelength;
-            syslog(LOG_NOTICE, "Have started %s.", time2str(starttimelength));
-            syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength));
-            syslog(LOG_NOTICE, "Network Lost %s.", time2str(errortimelength));
-            syslog(LOG_NOTICE, "SLA is %.5f",
-                   (double) normaltimelength / (double) starttimelength);
             if (!first_flag) {
                 first_flag = true;
             }
