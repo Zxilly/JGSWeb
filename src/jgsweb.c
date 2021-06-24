@@ -102,7 +102,7 @@ static bool check() {
     if (checkcode != CURLE_OK) {
         if (checkcode == CURLE_OPERATION_TIMEDOUT) {
             syslog(LOG_WARNING, "Check Timeout. Potential Connection lost.");
-            return check();
+            return login();
         }
     }
 
@@ -146,8 +146,8 @@ static bool login() {
             }
         } // FIXME: endless loop
     }
-    sleep(13);
-    errortimelength += 13;
+    sleep(3);
+    errortimelength += 3;
     checkcode = curl_easy_perform(loginsession);
     int drcom_num = 0;
     if (checkcode != CURLE_OK) {
