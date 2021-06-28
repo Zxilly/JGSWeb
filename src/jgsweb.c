@@ -146,13 +146,15 @@ static bool login() {
             }
         } // FIXME: endless loop
     }
+    syslog(LOG_INFO,"Wait for 13s.");
     sleep(13);
-    errortimelength += 3;
+    errortimelength += 13;
     checkcode = curl_easy_perform(loginsession);
     int drcom_num = 0;
     if (checkcode != CURLE_OK) {
         sleep(1);
         errortimelength += 1;
+        syslog(LOG_ERR,"Meet curl error.");
         return login();
     } else {
         if (!regexec(&compR, mem_a.memory, 1, regAns, 0)) {
