@@ -80,7 +80,7 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
 }
 
 void setupCheckServer() {
-    curl_easy_setopt(checksession, CURLOPT_URL, "http://47.100.56.127/");
+    curl_easy_setopt(checksession, CURLOPT_URL, "http://connect.rom.miui.com/generate_204");
 }
 
 void creatCheckSession() {
@@ -110,7 +110,7 @@ static bool check() {
     curl_easy_getinfo(checksession, CURLINFO_RESPONSE_CODE, &http_code);
 
     switch (http_code) {
-        case 666:
+        case 204:
             sleep(1);
             return true;
         case 000:
@@ -146,7 +146,7 @@ static bool login() {
             }
         } // FIXME: endless loop
     }
-    syslog(LOG_INFO,"Wait for 13s.");
+    syslog(LOG_INFO, "Wait for 13s.");
     sleep(13);
     errortimelength += 13;
     checkcode = curl_easy_perform(loginsession);
@@ -154,60 +154,87 @@ static bool login() {
     if (checkcode != CURLE_OK) {
         sleep(1);
         errortimelength += 1;
-        syslog(LOG_ERR,"Meet curl error.");
+        syslog(LOG_ERR, "Meet curl error.");
         return login();
     } else {
-        if (!regexec(&compR, mem_a.memory, 1, regAns, 0)) {
-            sscanf(mem_a.memory + regAns[0].rm_so, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num);
-            //TODO: implement get error UL
-            if (drcom_num == 2) {
-                if (duplicate_flag) {
-                    syslog(LOG_ERR, "Duplicate Login Checked, Retry in 17s.");
-                    errortimelength += 17;
-                    sleep(17);
-                } else {
-                    duplicate_flag = true;
-                    syslog(LOG_ERR, "Duplicate Login Checked, Retry in 13s.");
-                    errortimelength += 13;
-                    sleep(13);
-                }
-                return login();
-            } else if (drcom_num == 3) {
-                logincount++;
-                starttimelength = difftime(time(NULL), starttime);
-                normaltimelength = starttimelength - errortimelength;
-                syslog(LOG_NOTICE, "Login Success");
-                syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
-                       time2str(difftime(time(NULL), starttime)));
-                syslog(LOG_NOTICE, "Have started %s.", time2str(starttimelength));
-                syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength));
-                syslog(LOG_NOTICE, "Network Lost %s.", time2str(errortimelength));
-                syslog(LOG_NOTICE, "SLA is %.5f",
-                       (double) normaltimelength / (double) starttimelength);
+//        if (!regexec(&compR, mem_a.memory, 1, regAns, 0)) {
+//            sscanf(mem_a.memory + regAns[0].rm_so, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num);
+//            //TODO: implement get error UL
+//            if (drcom_num == 2) {
+//                if (duplicate_flag) {
+//                    syslog(LOG_ERR, "Duplicate Login Checked, Retry in 17s.");
+//                    errortimelength += 17;
+//                    sleep(17);
+//                } else {
+//                    duplicate_flag = true;
+//                    syslog(LOG_ERR, "Duplicate Login Checked, Retry in 13s.");
+//                    errortimelength += 13;
+//                    sleep(13);
+//                }
+//                return login();
+//            } else if (drcom_num == 3) {
+//                logincount++;
+//                starttimelength = difftime(time(NULL), starttime);
+//                normaltimelength = starttimelength - errortimelength;
+//                syslog(LOG_NOTICE, "Login Success");
+//                syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
+//                       time2str(difftime(time(NULL), starttime)));
+//                syslog(LOG_NOTICE, "Have started %s.", time2str(starttimelength));
+//                syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength));
+//                syslog(LOG_NOTICE, "Network Lost %s.", time2str(errortimelength));
+//                syslog(LOG_NOTICE, "SLA is %.5f",
+//                       (double) normaltimelength / (double) starttimelength);
+//
+//                if (lastsuccesstime == 0 || first_flag) {
+//                    lastsuccesstime = time(NULL);
+//                    syslog(LOG_NOTICE, "This is first time login.");
+//                    first_flag = false;
+//                } else {
+//                    syslog(LOG_NOTICE, "This part normal time is %ld seconds", time(NULL) - lastsuccesstime);
+//                    lastsuccesstime = time(NULL);
+//                    syslog(LOG_NOTICE, "Average normal time is %s", time2str(normaltimelength / logincount));
+//                }
+//
+//                sleep(2);
+//                curl_easy_cleanup(checksession);
+//                creatCheckSession();
+//                return true;
+//            } else {
+//                syslog(LOG_ERR, "Login Failed with unknown error (Dr.com Code is %d), Retry in 13s.", drcom_num);
+//                errortimelength += 13;
+//                sleep(13);
+//                return login();
+//            }
+//        } else {
+//            return login();
+//        }
 
-                if (lastsuccesstime == 0 || first_flag) {
-                    lastsuccesstime = time(NULL);
-                    syslog(LOG_NOTICE, "This is first time login.");
-                    first_flag = false;
-                } else {
-                    syslog(LOG_NOTICE, "This part normal time is %ld seconds", time(NULL) - lastsuccesstime);
-                    lastsuccesstime = time(NULL);
-                    syslog(LOG_NOTICE, "Average normal time is %s", time2str(normaltimelength / logincount));
-                }
+        logincount++;
+        starttimelength = difftime(time(NULL), starttime);
+        normaltimelength = starttimelength - errortimelength;
+        syslog(LOG_NOTICE, "Login Success");
+        syslog(LOG_NOTICE, "Have logined %d time(s) in %s", logincount,
+               time2str(difftime(time(NULL), starttime)));
+        syslog(LOG_NOTICE, "Have started %s.", time2str(starttimelength));
+        syslog(LOG_NOTICE, "Running normal %s.", time2str(normaltimelength));
+        syslog(LOG_NOTICE, "Network Lost %s.", time2str(errortimelength));
+        syslog(LOG_NOTICE, "SLA is %.5f",
+               (double) normaltimelength / (double) starttimelength);
 
-                sleep(2);
-                curl_easy_cleanup(checksession);
-                creatCheckSession();
-                return true;
-            } else {
-                syslog(LOG_ERR, "Login Failed with unknown error (Dr.com Code is %d), Retry in 13s.", drcom_num);
-                errortimelength += 13;
-                sleep(13);
-                return login();
-            }
+        if (lastsuccesstime == 0 || first_flag) {
+            lastsuccesstime = time(NULL);
+            syslog(LOG_NOTICE, "This is first time login.");
+            first_flag = false;
         } else {
-            return login();
+            syslog(LOG_NOTICE, "This part normal time is %ld seconds", time(NULL) - lastsuccesstime);
+            lastsuccesstime = time(NULL);
+            syslog(LOG_NOTICE, "Average normal time is %s", time2str(normaltimelength / logincount));
         }
+
+        sleep(2);
+        curl_easy_cleanup(checksession);
+        creatCheckSession();
+        return true;
     }
 }
 
@@ -247,10 +274,11 @@ static void creatDaemon() {
 
 
 int main(int argc, char *argv[]) {
-    char loginurl[] = "http://192.168.167.46/";
+//    char loginurl[] = "http://192.168.167.46/";
+    char loginurl[200];
     char *account;
     char *password;
-    char loginpostfield[200];
+//    char loginpostfield[200];
     char logincookie[200];
     char *IP = NULL;
     time_t count_t = time(NULL);
@@ -313,27 +341,30 @@ int main(int argc, char *argv[]) {
 
     //设置login参数串
 
-    sprintf(loginpostfield,
-            "DDDDD=%s&upass=%s&R1=0&R2=&R6=0&para=00&0MKKey=123456&buttonClicked=&redirect_url=&err_flag=&username=&password=&user=&cmd=&Login=&R7=0",
-            account, password);
+//    sprintf(loginpostfield,
+//            "DDDDD=%s&upass=%s&R1=0&R2=&R6=0&para=00&0MKKey=123456&buttonClicked=&redirect_url=&err_flag=&username=&password=&user=&cmd=&Login=&R7=0",
+//            account, password);
 
     sprintf(logincookie, "Cookie: program=ip; vlan=0; md5_login2=%s%%7C%s; ip=%s", account, password, IP);
     // 自定义检查头部
 
+    sprintf(loginurl,
+            "http://192.168.167.46/drcom/login?callback=dr1003&DDDDD=%s&upass=%s&0MKKey=123456&R1=0&R2=&R3=0&R6=0&para=00&v6ip=&terminal_type=1&lang=zh-cn&jsVersion=4.1&v=7912&lang=zh",
+            account, password);
 
     creatCheckSession();
 
     loginsession = curl_easy_init();
 
     curl_easy_setopt(loginsession, CURLOPT_URL, loginurl);
-    curl_easy_setopt(loginsession, CURLOPT_POST, 1L);
+//    curl_easy_setopt(loginsession, CURLOPT_POST, 1L);
     curl_easy_setopt(loginsession, CURLOPT_USERAGENT, "FFFFFFFFFFFFFFFFF");
     /* send all data to this function  */
     curl_easy_setopt(loginsession, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
     /* we pass our 'chunk' struct to the callback function */
     curl_easy_setopt(loginsession, CURLOPT_WRITEDATA, (void *) &mem_a);
     curl_easy_setopt(loginsession, CURLOPT_COOKIE, logincookie);
-    curl_easy_setopt(loginsession, CURLOPT_POSTFIELDS, loginpostfield);
+//    curl_easy_setopt(loginsession, CURLOPT_POSTFIELDS, loginpostfield);
 
     syslog(LOG_NOTICE, "Curl inited.");
 
