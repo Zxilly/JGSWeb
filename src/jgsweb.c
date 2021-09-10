@@ -135,12 +135,12 @@ static bool login() {
     weekday = tmptime->tm_wday;
     if (weekday >= 1 && weekday <= 5) {
         while (hour >= 0 && hour <= 6) {
-            sleep(1200);
             errortimelength += 1200;
             tmp = time(NULL);
             tmptime = localtime(&tmp);
             hour = tmptime->tm_hour;
-            syslog(LOG_DEBUG, "%d:%d:%d, another loop.", tmptime->tm_hour, tmptime->tm_min, tmptime->tm_sec);
+            syslog(LOG_DEBUG, "%d:%d:%d, wait 1200s and another loop.", tmptime->tm_hour, tmptime->tm_min, tmptime->tm_sec);
+            sleep(1200);
             if (!first_flag) {
                 first_flag = true;
             }
