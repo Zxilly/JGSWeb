@@ -157,6 +157,7 @@ static bool login() {
         syslog(LOG_ERR, "Meet curl error.");
         return login();
     } else {
+        syslog(LOG_WARNING, "%s", mem_a.memory);
 //        if (!regexec(&compR, mem_a.memory, 1, regAns, 0)) {
 //            sscanf(mem_a.memory + regAns[0].rm_so, "<!--Dr.COMWebLoginID_%d.htm-->", &drcom_num);
 //            //TODO: implement get error UL
@@ -275,7 +276,7 @@ static void creatDaemon() {
 
 int main(int argc, char *argv[]) {
 //    char loginurl[] = "http://192.168.167.46/";
-    char loginurl[200];
+    char loginurl[400];
     char *account;
     char *password;
 //    char loginpostfield[200];
